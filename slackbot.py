@@ -62,7 +62,7 @@ def handle_command(command, channel):
         Executes bot command if the command is known
     """
     default_response = "I don't recognize that command :("
-    response = None
+    response: str = None
     command = command.lower()
     wordlist = command.split()
     if wordlist[0] == "what" and wordlist[-1] == "password":
@@ -70,25 +70,28 @@ def handle_command(command, channel):
         selectquery = f"""select password from passwords where service = '{service}'"""
         cur.execute(selectquery)
         passlist = cur.fetchone()
-        if len(passlist) == 0:
-            return f"No password found for {service}"
+        if passlist and len(passlist) > 0:
+            response = passlist[0]
         else:
-            return passlist[0]
+            response = f"No password found for {service}"
     elif wordlist[0] == "the" and wordlist[2] == "password" and wordlist[3] == "is":
         service = wordlist[1]
         password = wordlist[4]
         selectquery = f"""select password from passwords where service = '{service}'"""
         cur.execute(selectquery)
         oldpass = cur.fetchone()
-        insertquery = f"""insert into passwords values('{service}','{password}')"""
+        if oldpass:
+            insertquery = f"""update passwords set password = '{password}' where service = '{service}'"""
+        else:
+            insertquery = f"""insert into passwords values('{service}','{password}')"""
         cur.execute(insertquery)
         con.commit()
         if oldpass:
-            return f"password for {service} set to {password}, old password was {oldpass}"
+            response = f"password for {service} set to {password}, old password was {oldpass[0]}"
         else:
-            return f"password for {service} set to {password}"
-
-
+            response = f"password for {service} set to {password}"
+    else:
+        response = "I don't understand that command. Try 'the ___ password is ___' or 'what is the ___ password?'"
     # Sends the response back to the channel
     slack_client.api_call(
         "chat.postMessage",
