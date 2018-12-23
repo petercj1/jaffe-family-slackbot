@@ -63,10 +63,9 @@ def handle_command(command, channel):
     """
     default_response = "I don't recognize that command :("
     response: str = None
-    command = command.lower()
     wordlist = command.split()
-    if wordlist[0] == "what" and wordlist[-1] == "password":
-        service = wordlist[-2]
+    if wordlist[0].lower() == "what" and wordlist[-1] == "password":
+        service = wordlist[-2].lower()
         selectquery = f"""select password from passwords where service = '{service}'"""
         cur.execute(selectquery)
         passlist = cur.fetchone()
@@ -74,8 +73,8 @@ def handle_command(command, channel):
             response = passlist[0]
         else:
             response = f"No password found for {service}"
-    elif wordlist[0] == "the" and wordlist[2] == "password" and wordlist[3] == "is":
-        service = wordlist[1]
+    elif wordlist[0].lower() == "the" and wordlist[2].lower() == "password" and wordlist[3].lower() == "is":
+        service = wordlist[1].lower()
         password = wordlist[4]
         selectquery = f"""select password from passwords where service = '{service}'"""
         cur.execute(selectquery)
