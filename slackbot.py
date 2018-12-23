@@ -3,6 +3,11 @@ import time
 import re
 from slackclient import SlackClient
 import logging
+import sqlite3
+
+dbname = "passwords.db"
+con = sqlite3.connect(dbname)
+cur = con.cursor()
 
 logger = logging.getLogger("slackbot")
 logger.setLevel(logging.DEBUG)
@@ -17,6 +22,10 @@ RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
 EXAMPLE_COMMAND = "do"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 
+def initialize_db():
+    ddlquery = "create table if not exists passwords(service text, password text)"
+    cur.execute(ddlquery)
+    con.commit()
 
 def parse_bot_commands(slack_events):
     """
@@ -54,6 +63,31 @@ def handle_command(command, channel):
     """
     default_response = "I don't recognize that command :("
     response = None
+    command = command.lower()
+    wordlist = command.split()
+    if wordlist[0] == "what" and wordlist[-1] == "password":
+        service = wordlist[-2]
+        selectquery = f"""select password from passwords where service = '{service}'"""
+        cur.execute(selectquery)
+        passlist = cur.fetchone()
+        if len(passlist) == 0:
+            return f"No password found for {service}"
+        else:
+            return passlist[0]
+    elif wordlist[0] == "the" and wordlist[2] == "password" and wordlist[3] == "is":
+        service = wordlist[1]
+        password = wordlist[4]
+        selectquery = f"""select password from passwords where service = '{service}'"""
+        cur.execute(selectquery)
+        oldpass = cur.fetchone()
+        insertquery = f"""insert into passwords values('{service}','{password}')"""
+        cur.execute(insertquery)
+        con.commit()
+        if oldpass:
+            return f"password for {service} set to {password}, old password was {oldpass}"
+        else:
+            return f"password for {service} set to {password}"
+
 
     # Sends the response back to the channel
     slack_client.api_call(
@@ -68,6 +102,7 @@ if __name__ == "__main__":
         print("Starter Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`
         starterbot_id = slack_client.api_call("auth.test")["user_id"]
+        initialize_db()
         print(starterbot_id)
         while True:
             command, channel = parse_bot_commands(slack_client.rtm_read())
